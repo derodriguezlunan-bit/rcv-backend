@@ -20,7 +20,7 @@ genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 @app.get("/")
 async def inicio():
-    return {"status": "online", "mensaje": "Backend de RCV operando al 100%"}
+    return {"status": "online", "mensaje": "Backend de RCV operando perfectamente"}
 
 @app.post("/api/procesar-documentos")
 async def procesar_documentos(
@@ -42,15 +42,15 @@ async def procesar_documentos(
     direccion_detallada: str = Form(...)
 ):
     try:
-        # Procesar la imagen de manera segura con PIL
+        # Leer la imagen subida y abrirla con PIL
         image_bytes = await carnet_img.read()
         imagen_pil = Image.open(io.BytesIO(image_bytes))
         
-        # Usar el modelo estable y directo para visión
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Usar el sufijo -latest para evitar el error 404 de versión en la API
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
         
         prompt = """
-        Analiza detalladamente esta imagen del carnet de circulación vehicular. 
+        Analiza esta imagen del carnet de circulación vehicular de Venezuela. 
         Extrae la información y devuélvela ÚNICAMENTE en formato JSON plano, sin bloques de código markdown ni texto adicional:
         {
           "placa": "",
@@ -67,7 +67,7 @@ async def procesar_documentos(
 
         response = model.generate_content([prompt, imagen_pil])
 
-        # Limpiar respuesta de texto para asegurar formato JSON válido
+        # Limpiar texto para garantizar JSON válido
         texto = response.text.replace("```json", "").replace("```", "").strip()
         datos_vehiculo = json.loads(texto)
 
@@ -75,7 +75,6 @@ async def procesar_documentos(
         print("--- ERROR EN PROCESAMIENTO IA ---")
         print(str(e))
         print("--------------------------------")
-        # Datos de respaldo automáticos por seguridad si la foto es ilegible
         datos_vehiculo = {
             "placa": "POR-VERIFICAR",
             "marca": "Vehículo",
