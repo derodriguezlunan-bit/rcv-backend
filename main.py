@@ -62,9 +62,9 @@ async def procesar_documentos(
         }
         """
 
-        # Usar el modelo compatible con la nueva SDK google-genai
+        # Usar el modelo estable gemini-2.0-flash
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-2.0-flash',
             contents=[prompt, imagen_pil]
         )
 
