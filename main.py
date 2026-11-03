@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Inicializar cliente de Google GenAI de forma segura
+# Inicializar cliente de Google GenAI
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 @app.get("/")
@@ -62,9 +62,9 @@ async def procesar_documentos(
         }
         """
 
-        # Llamada oficial con la nueva SDK google-genai
+        # Usar el modelo compatible con la nueva SDK google-genai
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=[prompt, imagen_pil]
         )
 
@@ -76,7 +76,6 @@ async def procesar_documentos(
         print("--- ERROR CRÍTICO EN IA ---")
         print(str(e))
         print("---------------------------")
-        # Datos de respaldo para que la solicitud no se detenga
         datos_vehiculo = {
             "placa": "POR-VERIFICAR",
             "marca": "Vehículo",
