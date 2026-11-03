@@ -1,6 +1,10 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-import google.generativeai as genai
+from google import genai
+from google.genai import types
+from PIL import Image
+import io
+import json
 import os
 
 app = FastAPI()
@@ -12,7 +16,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+# Inicializar el nuevo cliente de Google GenAI con la API Key de Render
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+
+@app.get("/")
+async def inicio():
+    return {"status": "online", "mensaje": "Backend de RCV con Google GenAI funcionando correctamente"}
 
 @app.post("/api/procesar-documentos")
 async def procesar_documentos(
@@ -34,49 +43,45 @@ async def procesar_documentos(
     direccion_detallada: str = Form(...)
 ):
     try:
-        # Leer los bytes de la imagen
+        # Leer imagen y procesarla con PIL
         image_bytes = await carnet_img.read()
-        
-        # Usar la forma directa y oficial de Gemini para imágenes
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        imagen_pil = Image.open(io.BytesIO(image_bytes))
         
         prompt = """
-        Analiza esta imagen de un carnet de circulación vehicular. 
-        Extrae estrictamente en formato JSON plano (sin texto adicional ni marcas de código) lo siguiente:
+        Analiza esta imagen del carnet de circulación vehicular de Venezuela. 
+        Extrae la información y devuélvela ÚNICAMENTE en formato JSON plano, sin bloques de código markdown:
         {
-          "placa": "valor",
-          "marca": "valor",
-          "modelo": "valor",
-          "anio": "valor",
-          "serial_carroceria": "valor",
-          "serial_motor": "valor",
-          "color": "valor",
-          "puestos": "valor",
-          "peso": "valor"
+          "placa": "",
+          "marca": "",
+          "modelo": "",
+          "anio": "",
+          "serial_carroceria": "",
+          "serial_motor": "",
+          "color": "",
+          "puestos": "",
+          "peso": ""
         }
         """
 
-        # Enviar imagen como un diccionario de partes
-        response = model.generate_content([
-            prompt,
-            {
-                "mime_type": carnet_img.content_type or "image/jpeg",
-                "data": image_bytes
-            }
-        ])
+        # Llamada usando la nueva sintaxis de la librería google-genai
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=[prompt, imagen_pil]
+        )
 
         # Limpiar texto de respuesta
         texto = response.text.replace("```json", "").replace("```", "").strip()
-        import json
         datos_vehiculo = json.loads(texto)
 
     except Exception as e:
-        print("EXCEPCIÓN REAL:", str(e))
+        print("--- ERROR EN IA ---")
+        print(str(e))
+        print("-------------------")
         datos_vehiculo = {
-            "placa": "ERROR-IA",
+            "placa": "ERROR-LECTURA",
             "marca": "Verificar",
             "modelo": "Manual",
-            "anio": "0000",
+            "anio": "N/A",
             "serial_carroceria": "N/A",
             "serial_motor": "N/A",
             "color": "N/A",
