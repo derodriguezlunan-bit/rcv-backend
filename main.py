@@ -39,8 +39,8 @@ async def procesar_documentos(
         carnet_bytes = await carnet_img.read()
 
         prompt = """
-        Analiza esta imagen del Carnet de Circulación vehicular de Venezuela.
-        Extrae la siguiente información técnica del vehículo y devuélvela UNICAMENTE en formato JSON plano, sin bloques de código markdown como ```json:
+        Analiza detalladamente esta imagen del Carnet de Circulación vehicular de Venezuela.
+        Extrae la siguiente información técnica del vehículo y devuélvela EXACTAMENTE en formato JSON plano, sin bloques de código markdown (como ```json):
         {
           "placa": "número de placa",
           "marca": "marca",
@@ -62,18 +62,27 @@ async def procesar_documentos(
         texto_limpio = response.text.strip()
         if texto_limpio.startswith("```json"):
             texto_limpio = texto_limpio[7:]
+        if texto_limpio.startswith("```"):
+            texto_limpio = texto_limpio[3:]
         if texto_limpio.endswith("```"):
             texto_limpio = texto_limpio[:-3]
         
         datos_extraidos = json.loads(texto_limpio.strip())
     except Exception as e:
+        # Respaldo en caso de cualquier detalle con la IA para que la app nunca se detenga
         datos_extraidos = {
-            "placa": "PENDIENTE",
-            "marca": "Verificar",
-            "modelo": "Carnet"
+            "placa": "POR VERIFICAR",
+            "marca": "Vehículo",
+            "modelo": "General",
+            "anio": "N/A",
+            "serial_carroceria": "N/A",
+            "serial_motor": "N/A",
+            "color": "N/A",
+            "puestos": "N/A",
+            "peso": "N/A"
         }
 
-    # Consolidar nombre completo
+    # Consolidar nombre completo formal
     s_nombre = segundo_nombre if segundo_nombre else ""
     s_apellido = segundo_apellido if segundo_apellido else ""
     nombre_completo = f"{primer_nombre} {s_nombre} {primer_apellido} {s_apellido}".replace("  ", " ").strip()
