@@ -20,7 +20,10 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 async def procesar_documentos(
     carnet_img: UploadFile = File(...),
     cedula: str = Form(...),
-    nombre: str = Form(...),
+    primer_nombre: str = Form(...),
+    segundo_nombre: str = Form(...),
+    primer_apellido: str = Form(...),
+    segundo_apellido: str = Form(...),
     fecha_nacimiento: str = Form(...),
     telefono: str = Form(...),
     correo: str = Form(...),
@@ -66,9 +69,15 @@ async def procesar_documentos(
             "modelo": "Ver Carnet"
         }
 
-    # Adjuntar el resto de la información aportada por el usuario
+    # Consolidar los nombres y demás datos aportados
+    nombre_completo = f"{primer_nombre} {segundo_nombre} {primer_apellido} {segundo_apellido}".replace("  ", " ").strip()
+
     datos_extraidos["cedula"] = cedula
-    datos_extraidos["nombre_completo"] = nombre
+    datos_extraidos["primer_nombre"] = primer_nombre
+    datos_extraidos["segundo_nombre"] = segundo_nombre
+    datos_extraidos["primer_apellido"] = primer_apellido
+    datos_extraidos["segundo_apellido"] = segundo_apellido
+    datos_extraidos["nombre_completo"] = nombre_completo
     datos_extraidos["fecha_nacimiento"] = fecha_nacimiento
     datos_extraidos["telefono"] = telefono
     datos_extraidos["correo"] = correo
