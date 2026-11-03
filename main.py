@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 import google.generativeai as genai
 import json
+import os
 
 app = FastAPI()
 
@@ -12,8 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Pega aquí tu llave real entre las comillas
-genai.configure(api_key="TU_GEMINI_API_KEY")
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 @app.post("/api/procesar-documentos")
@@ -30,10 +30,15 @@ async def procesar_documentos(
 
     prompt = """
     Analiza estas dos imágenes (Cédula de Identidad y Carnet de Circulación vehicular de Venezuela).
-    Extrae con precisión los siguientes datos en un formato JSON estricto:
+    Extrae con máxima precisión los siguientes datos en un formato JSON estricto:
     {
       "cedula": "",
       "nombre_completo": "",
+      "estado": "",
+      "ciudad": "",
+      "municipio": "",
+      "parroquia": "",
+      "direccion_detallada": "",
       "placa": "",
       "marca": "",
       "modelo": "",
