@@ -13,8 +13,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Configurar la API Key de Gemini
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-model = genai.GenerativeModel('gemini-1.5-flash')
 
 @app.post("/api/procesar-documentos")
 async def procesar_documentos(
@@ -36,29 +36,36 @@ async def procesar_documentos(
     direccion_detallada: str = Form(...)
 ):
     try:
-        carnet_bytes = await carnet_img.read()
+        # Leer los bytes de la imagen subida
+        imagen_bytes = await carnet_img.read()
+        mime_type = carnet_img.content_type if carnet_img.content_type else "image/jpeg"
+
+        # Inicializar el modelo Gemini 1.5 Flash
+        model = genai.GenerativeModel('gemini-1.5-flash')
 
         prompt = """
-        Analiza detalladamente esta imagen del Carnet de Circulación vehicular de Venezuela.
-        Extrae la siguiente información técnica del vehículo y devuélvela EXACTAMENTE en formato JSON plano, sin bloques de código markdown (como ```json):
+        Analiza esta imagen del Carnet de Circulación vehicular de Venezuela.
+        Extrae estrictamente los siguientes datos y respóndeme ÚNICAMENTE con un objeto JSON válido (sin texto antes ni después, ni bloques de código markdown):
         {
-          "placa": "número de placa",
-          "marca": "marca",
-          "modelo": "modelo",
-          "anio": "año",
-          "serial_carroceria": "serial de carrocería o NIV",
-          "serial_motor": "serial de motor",
-          "color": "color",
-          "puestos": "puestos",
-          "peso": "peso"
+          "placa": "",
+          "marca": "",
+          "modelo": "",
+          "anio": "",
+          "serial_carroceria": "",
+          "serial_motor": "",
+          "color": "",
+          "puestos": "",
+          "peso": ""
         }
         """
 
+        # Enviar prompt e imagen al modelo de IA
         response = model.generate_content([
             prompt,
-            {"mime_type": carnet_img.content_type, "data": carnet_bytes}
+            {"mime_type": mime_type, "data": imagen_bytes}
         ])
 
+        # Limpiar la respuesta de la IA
         texto_limpio = response.text.strip()
         if texto_limpio.startswith("```json"):
             texto_limpio = texto_limpio[7:]
@@ -66,15 +73,17 @@ async def procesar_documentos(
             texto_limpio = texto_limpio[3:]
         if texto_limpio.endswith("```"):
             texto_limpio = texto_limpio[:-3]
-        
-        datos_extraidos = json.loads(texto_limpio.strip())
+
+        datos_vehiculo = json.loads(texto_limpio.strip())
+
     except Exception as e:
-        # Respaldo en caso de cualquier detalle con la IA para que la app nunca se detenga
-        datos_extraidos = {
-            "placa": "POR VERIFICAR",
-            "marca": "Vehículo",
-            "modelo": "General",
-            "anio": "N/A",
+        print(f"Error en IA: {str(e)}")
+        # Datos de respaldo detallados para identificar si falló la IA
+        datos_vehiculo = {
+            "placa": "ERROR_LECTURA_IA",
+            "marca": "Verificar",
+            "modelo": "Manual",
+            "anio": "0000",
             "serial_carroceria": "N/A",
             "serial_motor": "N/A",
             "color": "N/A",
@@ -82,26 +91,30 @@ async def procesar_documentos(
             "peso": "N/A"
         }
 
-    # Consolidar nombre completo formal
+    # Consolidar nombre completo
     s_nombre = segundo_nombre if segundo_nombre else ""
     s_apellido = segundo_apellido if segundo_apellido else ""
     nombre_completo = f"{primer_nombre} {s_nombre} {primer_apellido} {s_apellido}".replace("  ", " ").strip()
 
-    datos_extraidos["cedula"] = cedula
-    datos_extraidos["primer_nombre"] = primer_nombre
-    datos_extraidos["segundo_nombre"] = s_nombre
-    datos_extraidos["primer_apellido"] = primer_apellido
-    datos_extraidos["segundo_apellido"] = s_apellido
-    datos_extraidos["nombre_completo"] = nombre_completo
-    datos_extraidos["fecha_nacimiento"] = fecha_nacimiento
-    datos_extraidos["telefono"] = telefono
-    datos_extraidos["correo"] = correo
-    datos_extraidos["tipo_vehiculo"] = tipo_vehiculo
-    datos_extraidos["precio"] = precio
-    datos_extraidos["estado"] = estado
-    datos_extraidos["ciudad"] = ciudad
-    datos_extraidos["municipio"] = municipio
-    datos_extraidos["parroquia"] = parroquia
-    datos_extraidos["direccion_detallada"] = direccion_detallada
+    # Combinar con los datos del formulario
+    resultado_final = {
+        "cedula": cedula,
+        "primer_nombre": primer_nombre,
+        "segundo_nombre": s_nombre,
+        "primer_apellido": primer_apellido,
+        "segundo_apellido": s_apellido,
+        "nombre_completo": nombre_completo,
+        "fecha_nacimiento": fecha_nacimiento,
+        "telefono": telefono,
+        "correo": correo,
+        "tipo_vehiculo": tipo_vehiculo,
+        "precio": precio,
+        "estado": estado,
+        "ciudad": ciudad,
+        "municipio": municipio,
+        "parroquia": parroquia,
+        "direccion_detallada": direccion_detallada,
+        **datos_vehiculo
+    }
 
-    return {"status": "success", "data": datos_extraidos}
+    return {"status": "success", "data": resultado_final}
