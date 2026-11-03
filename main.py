@@ -25,61 +25,55 @@ async def procesar_documentos(
     tipo_vehiculo: str = Form(...),
     precio: str = Form(...)
 ):
+    cedula_bytes = await cedula_img.read()
+    carnet_bytes = await carnet_img.read()
+
+    prompt = """
+    Analiza detalladamente estas dos imágenes adjuntas: la Cédula de Identidad y el Carnet de Circulación vehicular.
+    Extrae la siguiente información real que aparece en los documentos y devuélvela UNICAMENTE en formato JSON plano (sin texto adicional, sin bloques de código markdown como ```json):
+    {
+      "cedula": "número de cédula con letra V o E",
+      "nombre_completo": "nombre y apellido completo del titular",
+      "estado": "estado de residencia",
+      "ciudad": "ciudad",
+      "municipio": "municipio",
+      "parroquia": "parroquia",
+      "direccion_detallada": "dirección exacta de domicilio",
+      "placa": "número de placa del vehículo",
+      "marca": "marca del carro o moto",
+      "modelo": "modelo",
+      "anio": "año",
+      "serial_carroceria": "serial de carrocería o NIV",
+      "serial_motor": "serial de motor",
+      "color": "color",
+      "puestos": "puestos",
+      "peso": "peso"
+    }
+    """
+
+    response = model.generate_content([
+        prompt,
+        {"mime_type": cedula_img.content_type, "data": cedula_bytes},
+        {"mime_type": carnet_img.content_type, "data": carnet_bytes}
+    ])
+
+    texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
+    
     try:
-        cedula_bytes = await cedula_img.read()
-        carnet_bytes = await carnet_img.read()
-
-        prompt = """
-        Analiza estas dos imágenes (Cédula de Identidad venezolana y Carnet de Circulación vehicular).
-        Extrae estrictamente en formato JSON válido los siguientes campos sin texto adicional ni bloques de código markdown extra:
-        {
-          "cedula": "",
-          "nombre_completo": "",
-          "estado": "",
-          "ciudad": "",
-          "municipio": "",
-          "parroquia": "",
-          "direccion_detallada": "",
-          "placa": "",
-          "marca": "",
-          "modelo": "",
-          "anio": "",
-          "serial_carroceria": "",
-          "serial_motor": "",
-          "color": "",
-          "puestos": "",
-          "peso": ""
-        }
-        """
-
-        response = model.generate_content([
-            prompt,
-            {"mime_type": cedula_img.content_type, "data": cedula_bytes},
-            {"mime_type": carnet_img.content_type, "data": carnet_bytes}
-        ])
-
-        texto_respuesta = response.text.strip()
-        # Limpiar formato markdown si la IA lo incluye
-        if texto_respuesta.startswith("```json"):
-            texto_respuesta = texto_respuesta[7:]
-        if texto_respuesta.endswith("```"):
-            texto_respuesta = texto_respuesta[:-3]
-        
-        datos_extraidos = json.loads(texto_respuesta.strip())
-
-    except Exception as e:
-        # Si hay cualquier detalle leyendo la IA, devolvemos un JSON básico de respaldo para que la app no falle
+        datos_extraidos = json.loads(texto_limpio)
+    except:
+        # Si llega a haber un fallo, rescatamos al menos el texto plano que leyó la IA
         datos_extraidos = {
-            "cedula": "V-N/A",
-            "nombre_completo": "Cliente Verificado",
+            "cedula": "Revisar imagen",
+            "nombre_completo": "Cliente RCV",
             "estado": "Miranda",
             "ciudad": "Guarenas",
             "municipio": "Plaza",
             "parroquia": "Guarenas",
-            "direccion_detallada": "Urbanización Principal",
-            "placa": "N/A",
-            "marca": "Vehículo",
-            "modelo": "General"
+            "direccion_detallada": texto_limpio[:100],
+            "placa": "PENDIENTE",
+            "marca": "Ver foto",
+            "modelo": "Ver foto"
         }
 
     datos_extraidos["telefono"] = telefono
