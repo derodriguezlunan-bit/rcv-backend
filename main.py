@@ -16,8 +16,7 @@ app.add_middleware(
 )
 
 # Configurar la API Key
-api_key = os.environ.get("GEMINI_API_KEY")
-genai.configure(api_key=api_key)
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 @app.get("/")
 async def inicio():
@@ -46,8 +45,8 @@ async def procesar_documentos(
         image_bytes = await carnet_img.read()
         imagen_pil = Image.open(io.BytesIO(image_bytes))
         
-        # Usar el nombre exacto de modelo compatible con la librería 0.8.3
-        model = genai.GenerativeModel('models/gemini-1.5-flash')
+        # Usar directamente el modelo estándar reconocido por la librería
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         prompt = """
         Analiza esta imagen del carnet de circulación vehicular. 
