@@ -1,7 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
-from google.genai import types
 from PIL import Image
 import io
 import json
@@ -16,12 +15,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Inicializar el nuevo cliente de Google GenAI con la API Key de Render
+# Inicializar cliente de Google GenAI de forma segura
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 @app.get("/")
 async def inicio():
-    return {"status": "online", "mensaje": "Backend de RCV con Google GenAI funcionando correctamente"}
+    return {"status": "online", "mensaje": "Backend de RCV activo y operando"}
 
 @app.post("/api/procesar-documentos")
 async def procesar_documentos(
@@ -43,13 +42,13 @@ async def procesar_documentos(
     direccion_detallada: str = Form(...)
 ):
     try:
-        # Leer imagen y procesarla con PIL
+        # Leer la imagen subida y abrirla con PIL
         image_bytes = await carnet_img.read()
         imagen_pil = Image.open(io.BytesIO(image_bytes))
-        
+
         prompt = """
-        Analiza esta imagen del carnet de circulación vehicular de Venezuela. 
-        Extrae la información y devuélvela ÚNICAMENTE en formato JSON plano, sin bloques de código markdown:
+        Analiza detalladamente esta imagen del carnet de circulación vehicular. 
+        Extrae la siguiente información y devuélvela UNICAMENTE en formato JSON plano, sin bloques de código markdown:
         {
           "placa": "",
           "marca": "",
@@ -63,24 +62,25 @@ async def procesar_documentos(
         }
         """
 
-        # Llamada usando la nueva sintaxis de la librería google-genai
+        # Llamada oficial con la nueva SDK google-genai
         response = client.models.generate_content(
             model='gemini-1.5-flash',
             contents=[prompt, imagen_pil]
         )
 
-        # Limpiar texto de respuesta
+        # Limpiar la respuesta para asegurar que sea un JSON válido
         texto = response.text.replace("```json", "").replace("```", "").strip()
         datos_vehiculo = json.loads(texto)
 
     except Exception as e:
-        print("--- ERROR EN IA ---")
+        print("--- ERROR CRÍTICO EN IA ---")
         print(str(e))
-        print("-------------------")
+        print("---------------------------")
+        # Datos de respaldo para que la solicitud no se detenga
         datos_vehiculo = {
-            "placa": "ERROR-LECTURA",
-            "marca": "Verificar",
-            "modelo": "Manual",
+            "placa": "POR-VERIFICAR",
+            "marca": "Vehículo",
+            "modelo": "General",
             "anio": "N/A",
             "serial_carroceria": "N/A",
             "serial_motor": "N/A",
