@@ -15,12 +15,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configurar la API Key de Gemini
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+# Configurar la API Key
+api_key = os.environ.get("GEMINI_API_KEY")
+genai.configure(api_key=api_key)
 
 @app.get("/")
 async def inicio():
-    return {"status": "online", "mensaje": "Backend de RCV operando perfectamente"}
+    return {"status": "online", "mensaje": "Backend RCV operativo"}
 
 @app.post("/api/procesar-documentos")
 async def procesar_documentos(
@@ -42,15 +43,14 @@ async def procesar_documentos(
     direccion_detallada: str = Form(...)
 ):
     try:
-        # Leer la imagen subida y abrirla con PIL
         image_bytes = await carnet_img.read()
         imagen_pil = Image.open(io.BytesIO(image_bytes))
         
-        # Usar el sufijo -latest para evitar el error 404 de versión en la API
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        # Usar el nombre exacto de modelo compatible con la librería 0.8.3
+        model = genai.GenerativeModel('models/gemini-1.5-flash')
         
         prompt = """
-        Analiza esta imagen del carnet de circulación vehicular de Venezuela. 
+        Analiza esta imagen del carnet de circulación vehicular. 
         Extrae la información y devuélvela ÚNICAMENTE en formato JSON plano, sin bloques de código markdown ni texto adicional:
         {
           "placa": "",
@@ -67,7 +67,6 @@ async def procesar_documentos(
 
         response = model.generate_content([prompt, imagen_pil])
 
-        # Limpiar texto para garantizar JSON válido
         texto = response.text.replace("```json", "").replace("```", "").strip()
         datos_vehiculo = json.loads(texto)
 
