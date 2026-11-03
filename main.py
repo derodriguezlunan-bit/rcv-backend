@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from google import genai
+import google.generativeai as genai
 from PIL import Image
 import io
 import json
@@ -15,12 +15,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Inicializar cliente de Google GenAI
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+# Configurar la API Key de Gemini
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 @app.get("/")
 async def inicio():
-    return {"status": "online", "mensaje": "Backend de RCV activo y operando"}
+    return {"status": "online", "mensaje": "Backend de RCV operando al 100%"}
 
 @app.post("/api/procesar-documentos")
 async def procesar_documentos(
@@ -42,13 +42,16 @@ async def procesar_documentos(
     direccion_detallada: str = Form(...)
 ):
     try:
-        # Leer la imagen subida y abrirla con PIL
+        # Procesar la imagen de manera segura con PIL
         image_bytes = await carnet_img.read()
         imagen_pil = Image.open(io.BytesIO(image_bytes))
-
+        
+        # Usar el modelo estable y directo para visión
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
         prompt = """
         Analiza detalladamente esta imagen del carnet de circulación vehicular. 
-        Extrae la siguiente información y devuélvela UNICAMENTE en formato JSON plano, sin bloques de código markdown:
+        Extrae la información y devuélvela ÚNICAMENTE en formato JSON plano, sin bloques de código markdown ni texto adicional:
         {
           "placa": "",
           "marca": "",
@@ -62,20 +65,17 @@ async def procesar_documentos(
         }
         """
 
-        # Usar el modelo estable gemini-2.0-flash
-        response = client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=[prompt, imagen_pil]
-        )
+        response = model.generate_content([prompt, imagen_pil])
 
-        # Limpiar la respuesta para asegurar que sea un JSON válido
+        # Limpiar respuesta de texto para asegurar formato JSON válido
         texto = response.text.replace("```json", "").replace("```", "").strip()
         datos_vehiculo = json.loads(texto)
 
     except Exception as e:
-        print("--- ERROR CRÍTICO EN IA ---")
+        print("--- ERROR EN PROCESAMIENTO IA ---")
         print(str(e))
-        print("---------------------------")
+        print("--------------------------------")
+        # Datos de respaldo automáticos por seguridad si la foto es ilegible
         datos_vehiculo = {
             "placa": "POR-VERIFICAR",
             "marca": "Vehículo",
