@@ -1,7 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 import google.generativeai as genai
-import json
 import os
 
 app = FastAPI()
@@ -13,7 +12,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configurar la API Key de Gemini
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 @app.post("/api/procesar-documentos")
@@ -36,51 +34,46 @@ async def procesar_documentos(
     direccion_detallada: str = Form(...)
 ):
     try:
-        # Leer los bytes de la imagen subida
-        imagen_bytes = await carnet_img.read()
-        mime_type = carnet_img.content_type if carnet_img.content_type else "image/jpeg"
-
-        # Inicializar el modelo Gemini 1.5 Flash
+        # Leer los bytes de la imagen
+        image_bytes = await carnet_img.read()
+        
+        # Usar la forma directa y oficial de Gemini para imágenes
         model = genai.GenerativeModel('gemini-1.5-flash')
-
+        
         prompt = """
-        Analiza esta imagen del Carnet de Circulación vehicular de Venezuela.
-        Extrae estrictamente los siguientes datos y respóndeme ÚNICAMENTE con un objeto JSON válido (sin texto antes ni después, ni bloques de código markdown):
+        Analiza esta imagen de un carnet de circulación vehicular. 
+        Extrae estrictamente en formato JSON plano (sin texto adicional ni marcas de código) lo siguiente:
         {
-          "placa": "",
-          "marca": "",
-          "modelo": "",
-          "anio": "",
-          "serial_carroceria": "",
-          "serial_motor": "",
-          "color": "",
-          "puestos": "",
-          "peso": ""
+          "placa": "valor",
+          "marca": "valor",
+          "modelo": "valor",
+          "anio": "valor",
+          "serial_carroceria": "valor",
+          "serial_motor": "valor",
+          "color": "valor",
+          "puestos": "valor",
+          "peso": "valor"
         }
         """
 
-        # Enviar prompt e imagen al modelo de IA
+        # Enviar imagen como un diccionario de partes
         response = model.generate_content([
             prompt,
-            {"mime_type": mime_type, "data": imagen_bytes}
+            {
+                "mime_type": carnet_img.content_type or "image/jpeg",
+                "data": image_bytes
+            }
         ])
 
-        # Limpiar la respuesta de la IA
-        texto_limpio = response.text.strip()
-        if texto_limpio.startswith("```json"):
-            texto_limpio = texto_limpio[7:]
-        if texto_limpio.startswith("```"):
-            texto_limpio = texto_limpio[3:]
-        if texto_limpio.endswith("```"):
-            texto_limpio = texto_limpio[:-3]
-
-        datos_vehiculo = json.loads(texto_limpio.strip())
+        # Limpiar texto de respuesta
+        texto = response.text.replace("```json", "").replace("```", "").strip()
+        import json
+        datos_vehiculo = json.loads(texto)
 
     except Exception as e:
-        print(f"Error en IA: {str(e)}")
-        # Datos de respaldo detallados para identificar si falló la IA
+        print("EXCEPCIÓN REAL:", str(e))
         datos_vehiculo = {
-            "placa": "ERROR_LECTURA_IA",
+            "placa": "ERROR-IA",
             "marca": "Verificar",
             "modelo": "Manual",
             "anio": "0000",
@@ -91,12 +84,10 @@ async def procesar_documentos(
             "peso": "N/A"
         }
 
-    # Consolidar nombre completo
     s_nombre = segundo_nombre if segundo_nombre else ""
     s_apellido = segundo_apellido if segundo_apellido else ""
     nombre_completo = f"{primer_nombre} {s_nombre} {primer_apellido} {s_apellido}".replace("  ", " ").strip()
 
-    # Combinar con los datos del formulario
     resultado_final = {
         "cedula": cedula,
         "primer_nombre": primer_nombre,
